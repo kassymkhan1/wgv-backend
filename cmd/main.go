@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
+	"net/http"
 	"wgv/api"
 	"wgv/internal/db"
 	"wgv/internal/etcd"
@@ -10,11 +11,6 @@ import (
 )
 
 func main() {
-	var auth firebase.FIREBASE
-	auth = &firebase.Fire{
-		Auth: "./serviceAccount.json",
-	}
-
 	router := gin.Default()
 
 	var routing etcd.Route
@@ -29,12 +25,25 @@ func main() {
 		c.Set("db", postgres)
 		c.Set("traefik", traffic)
 		c.Set("etcd", routing)
-		c.Set("firebase", auth.SetupFirebase)
 	})
 
 	// Authorization and configuration Cors
 	router.Use(CorsMiddleware())
-	router.Use(auth.AuthMiddleware)
+	router.Use(func(c *gin.Context) {
+		var auth firebase.FIREBASE
+		auth = &firebase.Fire{
+			Token: "test",
+			Auth:  "./serviceAccount.json",
+		}
+		validateToken := auth.AuthMiddleware
+		if validateToken != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid token"})
+			c.Abort()
+			return
+		}
+		c.Set("USER", validateToken)
+		c.Next()
+	})
 
 	// Creat API
 	var create api.ApiCreate
@@ -51,7 +60,7 @@ func main() {
 	var update api.ApiUpdate
 	update = &api.Update{}
 
-	updateRouter := router.Group("/create")
+	updateRouter := router.Group("/update")
 	{
 		updateRouter.POST("/cloud", update.Cloud)
 		updateRouter.POST("/etcd", update.EtcdPath)
@@ -62,7 +71,7 @@ func main() {
 	var read api.ApiRead
 	read = &api.Read{}
 
-	readRouter := router.Group("/create")
+	readRouter := router.Group("/read")
 	{
 		readRouter.POST("/cloud", read.Cloud)
 		readRouter.POST("/etcd", read.EtcdPath)

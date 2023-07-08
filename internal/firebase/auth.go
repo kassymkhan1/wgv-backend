@@ -4,41 +4,33 @@ import (
 	"context"
 	firebase "firebase.google.com/go"
 	"firebase.google.com/go/auth"
-	"github.com/gin-gonic/gin"
 	"google.golang.org/api/option"
-	"net/http"
 	"path/filepath"
 	"strings"
 )
 
 type FIREBASE interface {
-	AuthMiddleware(c *gin.Context)
+	AuthMiddleware() string
 	SetupFirebase() *auth.Client
 }
 type Fire struct {
-	Auth string
+	Token string
+	Auth  string
 }
 
-func (f *Fire) AuthMiddleware(c *gin.Context) {
-	firebaseAuth := c.MustGet("firebaseAuth").(*auth.Client)
-
-	authorizationToken := c.GetHeader("Authorization")
-	idToken := strings.TrimSpace(strings.Replace(authorizationToken, "Bearer", "", 1))
+func (f *Fire) AuthMiddleware() string {
+	firebaseAuth := f.SetupFirebase()
+	idToken := strings.TrimSpace(strings.Replace(f.Token, "Bearer", "", 1))
 
 	if idToken == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Id token not available"})
-		c.Abort()
-		return
+		return ""
 	}
 	//verify token
 	token, err := firebaseAuth.VerifyIDToken(context.Background(), idToken)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid token"})
-		c.Abort()
-		return
+		return ""
 	}
-	c.Set("USER", token.UID)
-	c.Next()
+	return token.UID
 }
 func (f *Fire) SetupFirebase() *auth.Client {
 
