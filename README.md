@@ -1,7 +1,7 @@
 # Backend for wgv
 
 
-# Techonolgies 
+# Techonolgy 
 * Golang
 * firebase
 * Gin
